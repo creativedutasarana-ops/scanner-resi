@@ -48,40 +48,46 @@
     let hasilScan = [];
 
     // Inisialisasi kamera
-    function startScanner() {
-      scanner = new Instascan.Scanner({ video: document.getElementById('preview') });
-      scanner.addListener('scan', function (content) {
-        const now = new Date();
-        const tanggal = now.toLocaleDateString();
-        const jam = now.toLocaleTimeString();
-        const nama = document.getElementById("namaInput").value || "-";
+function startScanner() {
+  scanner = new Instascan.Scanner({ video: document.getElementById('preview') });
+  scanner.addListener('scan', function (content) {
+    const now = new Date();
+    const tanggal = now.toLocaleDateString();
+    const jam = now.toLocaleTimeString();
+    const nama = document.getElementById("namaInput").value || "-";
 
-        // Misalnya format hasil scan "RESI12345|JNE"
-        let [resi, ekspedisi] = content.split("|");
-        if (!ekspedisi) ekspedisi = "-";
+    // Misalnya format hasil scan "RESI12345|JNE"
+    let [resi, ekspedisi] = content.split("|");
+    if (!ekspedisi) ekspedisi = "-";
 
-        hasilScan.push({
-          tanggal: tanggal,
-          jam: jam,
-          resi: resi,
-          nama: nama,
-          ekspedisi: ekspedisi
-        });
+    hasilScan.push({
+      tanggal: tanggal,
+      jam: jam,
+      resi: resi,
+      nama: nama,
+      ekspedisi: ekspedisi
+    });
 
-        updateTabel();
-      });
+    updateTabel();
+  });
 
-      Instascan.Camera.getCameras().then(function (cameras) {
-        if (cameras.length > 0) {
-          scanner.start(cameras[0]); // default kamera belakang
-        } else {
-          alert('Tidak ada kamera terdeteksi');
-        }
-      }).catch(function (e) {
-        console.error(e);
-        alert("Error kamera: " + e);
-      });
+  Instascan.Camera.getCameras().then(function (cameras) {
+    if (cameras.length > 0) {
+      // Cari kamera belakang
+      let backCam = cameras.find(cam => cam.name.toLowerCase().includes('back'));
+      if (backCam) {
+        scanner.start(backCam);
+      } else {
+        scanner.start(cameras[0]); // fallback
+      }
+    } else {
+      alert('Tidak ada kamera terdeteksi');
     }
+  }).catch(function (e) {
+    console.error(e);
+    alert("Error kamera: " + e);
+  });
+}
 
     // Update tabel hasil scan
     function updateTabel() {
