@@ -3,146 +3,148 @@
 <head>
   <meta charset="UTF-8">
   <title>Scanner Resi Pengiriman</title>
+  <script src="https://rawgit.com/schmich/instascan-builds/master/instascan.min.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; background: #111; color: #fff; text-align: center; }
-    h1 { margin: 20px 0; }
-    table { border-collapse: collapse; margin: 20px auto; }
-    th, td { border: 1px solid #555; padding: 6px 12px; }
-    th { background: #333; }
-    button { margin: 10px; padding: 10px 15px; border: none; border-radius: 6px; cursor: pointer; }
-    #saveBtn { background: green; color: white; }
-    #scanAgainBtn { background: orange; color: white; }
+    body { font-family: Arial, sans-serif; text-align: center; }
+    #preview { width: 300px; border: 2px solid #333; margin: 10px auto; }
+    table { border-collapse: collapse; width: 100%; margin-top: 15px; }
+    th, td { border: 1px solid #999; padding: 6px; }
+    button { margin: 8px; padding: 8px 16px; cursor: pointer; }
   </style>
 </head>
 <body>
-  <h1>📦 Scanner Resi Pengiriman</h1>
+  <h2>📦 Scanner Resi Pengiriman</h2>
 
-  <label>Nama Penerima:
-    <input type="text" id="namaInput" placeholder="Nama penerima">
-  </label>
+  <!-- Input nama penerima -->
+  <label>Nama Penerima:</label>
+  <input type="text" id="namaInput" placeholder="Isi nama penerima"><br><br>
 
-  <div style="margin:20px;">
-    <video id="preview" width="300" height="200" style="border:1px solid #555;"></video>
+  <!-- Kamera preview -->
+  <video id="preview"></video>
+
+  <!-- Tombol -->
+  <div>
+    <button onclick="resetScanner()">🔄 Scan Ulang</button>
+    <button onclick="saveToSheet()">💾 Simpan ke Spreadsheet</button>
   </div>
 
   <h3>Hasil Scan:</h3>
-  <table id="hasilTable">
-    <thead>
-      <tr>
-        <th>Tanggal</th>
-        <th>Jam</th>
-        <th>Nomor Resi</th>
-        <th>Nama</th>
-        <th>Ekspedisi</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
+  <table id="resultTable">
+    <tr>
+      <th>Tanggal</th>
+      <th>Jam</th>
+      <th>Nomor Resi</th>
+      <th>Nama</th>
+      <th>Ekspedisi</th>
+    </tr>
   </table>
 
-  <button id="saveBtn">Simpan ke Spreadsheet</button>
-  <button id="scanAgainBtn">Scan Lagi</button>
-
-  <script src="https://rawgit.com/schmich/instascan-builds/master/instascan.min.js"></script>
   <script>
+    const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbzkYfq4uK1x93SPTIrhak5dynDQsGZWZaRvB9wfg4ncCbwYHvYogkmVjoygAvlBIgHh/exec";
+    const GOOGLE_SHEET_TOKEN = "DSC-YOGYA";
+
     let scanner;
     let hasilScan = [];
 
-    // Inisialisasi kamera
-function startScanner() {
-  scanner = new Instascan.Scanner({ video: document.getElementById('preview') });
-  scanner.addListener('scan', function (content) {
-    const now = new Date();
-    const tanggal = now.toLocaleDateString();
-    const jam = now.toLocaleTimeString();
-    const nama = document.getElementById("namaInput").value || "-";
-
-    // Misalnya format hasil scan "RESI12345|JNE"
-    let [resi, ekspedisi] = content.split("|");
-    if (!ekspedisi) ekspedisi = "-";
-
-    hasilScan.push({
-      tanggal: tanggal,
-      jam: jam,
-      resi: resi,
-      nama: nama,
-      ekspedisi: ekspedisi
-    });
-
-    updateTabel();
-  });
-
-  Instascan.Camera.getCameras().then(function (cameras) {
-    if (cameras.length > 0) {
-      // Cari kamera belakang
-      let backCam = cameras.find(cam => cam.name.toLowerCase().includes('back'));
-      if (backCam) {
-        scanner.start(backCam);
-      } else {
-        scanner.start(cameras[0]); // fallback
-      }
-    } else {
-      alert('Tidak ada kamera terdeteksi');
+    // Mapping ekspedisi
+    function getEkspedisi(resi) {
+      if (resi.startsWith("JX")) return "J&T";
+      if (resi.startsWith("TTSPO")) return "Posind";
+      if (resi.startsWith("TSPX")) return "PAXEL";
+      if (resi.startsWith("TG")) return "JNE REG";
+      if (resi.startsWith("TSA")) return "Antaraja";
+      return "Lainnya";
     }
-  }).catch(function (e) {
-    console.error(e);
-    alert("Error kamera: " + e);
-  });
-}
 
-    // Update tabel hasil scan
+    // Update tabel
     function updateTabel() {
-      let tbody = document.querySelector("#hasilTable tbody");
-      tbody.innerHTML = "";
-      hasilScan.forEach(row => {
-        let tr = `<tr>
-          <td>${row.tanggal}</td>
-          <td>${row.jam}</td>
-          <td>${row.resi}</td>
-          <td>${row.nama}</td>
-          <td>${row.ekspedisi}</td>
+      let table = document.getElementById("resultTable");
+      table.innerHTML = `
+        <tr>
+          <th>Tanggal</th>
+          <th>Jam</th>
+          <th>Nomor Resi</th>
+          <th>Nama</th>
+          <th>Ekspedisi</th>
         </tr>`;
-        tbody.innerHTML += tr;
+      hasilScan.forEach(data => {
+        let row = table.insertRow();
+        row.insertCell(0).innerText = data.tanggal;
+        row.insertCell(1).innerText = data.jam;
+        row.insertCell(2).innerText = data.resi;
+        row.insertCell(3).innerText = data.nama;
+        row.insertCell(4).innerText = data.ekspedisi;
       });
     }
 
-    // Tombol Simpan
-    document.getElementById("saveBtn").addEventListener("click", function () {
+    // Kirim ke Google Sheet
+    async function saveToSheet() {
       if (hasilScan.length === 0) {
-        alert("Belum ada data untuk disimpan.");
+        alert("Belum ada data untuk disimpan!");
         return;
       }
-
-      fetch("https://script.google.com/macros/s/AKfycbzkYfq4uK1x93SPTIrhak5dynDQsGZWZaRvB9wfg4ncCbwYHvYogkmVjoygAvlBIgHh/exec", {
-        method: "POST",
-        body: JSON.stringify(hasilScan),
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-      .then(res => res.json())
-      .then(response => {
-        alert("✅ Data berhasil disimpan ke Spreadsheet!");
-        hasilScan = []; // kosongkan array setelah simpan
-        updateTabel();
-      })
-      .catch(err => {
-        console.error("Error:", err);
-        alert("Gagal menyimpan ke Spreadsheet.");
-      });
-    });
-
-    // Tombol Scan Lagi
-    document.getElementById("scanAgainBtn").addEventListener("click", function () {
-      if (scanner) {
-        scanner.stop().then(() => {
-          startScanner();
+      try {
+        await fetch(GOOGLE_SHEET_URL, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            token: GOOGLE_SHEET_TOKEN,
+            data: hasilScan
+          })
         });
-      } else {
-        startScanner();
+        alert("✅ Data berhasil dikirim ke Spreadsheet!");
+        hasilScan = [];
+        updateTabel();
+      } catch (e) {
+        console.error(e);
+        alert("❌ Gagal kirim ke Spreadsheet!");
       }
-    });
+    }
 
-    // Mulai scanner pertama kali
+    // Reset scanner
+    function resetScanner() {
+      if (scanner) {
+        scanner.stop();
+      }
+      startScanner();
+    }
+
+    // Mulai scanner
+    function startScanner() {
+      scanner = new Instascan.Scanner({ video: document.getElementById('preview') });
+      scanner.addListener('scan', function (content) {
+        const now = new Date();
+        const tanggal = now.toLocaleDateString("id-ID");
+        const jam = now.toLocaleTimeString("id-ID");
+        const nama = document.getElementById("namaInput").value || "-";
+
+        let data = {
+          tanggal: tanggal,
+          jam: jam,
+          resi: content,
+          nama: nama,
+          ekspedisi: getEkspedisi(content)
+        };
+
+        hasilScan.push(data);
+        updateTabel();
+      });
+
+      Instascan.Camera.getCameras().then(function (cameras) {
+        if (cameras.length > 0) {
+          // Default pakai kamera belakang (cameras[0])
+          scanner.start(cameras[0]);
+        } else {
+          alert("❌ Tidak ada kamera terdeteksi!");
+        }
+      }).catch(function (e) {
+        console.error(e);
+        alert("Error kamera: " + e);
+      });
+    }
+
+    // Jalankan saat load
     startScanner();
   </script>
 </body>
