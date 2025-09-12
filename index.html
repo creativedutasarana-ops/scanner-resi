@@ -177,8 +177,13 @@
         };
 
         const onScanSuccess = (decodedText) => {
+            // Hentikan pemindai segera setelah berhasil scan
+            scanner.stop();
+            isScanning = false;
+
             if (scannedData.some(item => item.resi === decodedText)) {
                 showMessage("❌ Resi ini sudah discan!", "error");
+                startScanner(); // Mulai pemindai lagi untuk scan resi lain
                 return;
             }
 
@@ -207,9 +212,9 @@
             scanAgainBtn.disabled = false;
             
             if (!isMassalMode) {
-                scanner.stop();
-                isScanning = false;
                 sendData(scannedData);
+            } else {
+                startScanner(); // Mulai pemindai lagi jika dalam mode massal
             }
         };
 
@@ -234,15 +239,18 @@
                 
                 showMessage("✅ Data scan telah berhasil disimpan!", "success");
                 
-                // Reset UI setelah data disimpan
                 scannedData = [];
                 resultTableBody.innerHTML = '';
                 saveBtn.disabled = true;
                 scanAgainBtn.disabled = true;
                 namaInput.value = '';
                 
+                // Setelah selesai, mulai pemindai lagi jika perlu
+                startScanner();
+                
             } catch (e) {
                 showMessage(`❌ Gagal menyimpan data: ${e.message}`, "error");
+                startScanner();
             }
         };
 
