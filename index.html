@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>QR Code Scanner ke Google Sheet</title>
+  <title>Scanner Resi ke Google Sheet</title>
   <script src="https://unpkg.com/html5-qrcode"></script>
   <style>
     body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
     #qr-reader { width: 100%; max-width: 400px; margin: auto; }
-    #result-container { margin-top: 20px; }
+    #result-container { margin-top: 20px; text-align: left; }
     .btn { padding: 10px 20px; margin: 10px; font-size: 16px; cursor: pointer; border: none; border-radius: 6px; }
     #saveBtn { background: green; color: white; }
     #scanBtn { background: orange; color: white; }
@@ -16,15 +16,19 @@
 </head>
 <body>
 
-  <h2>QR Code Scanner ke Google Sheet</h2>
+  <h2>📦 Scanner Resi ke Google Sheet</h2>
   <div id="qr-reader"></div>
 
+  <h3>📋 Hasil Scan:</h3>
   <div id="result-container"></div>
 
-  <button id="scanBtn" class="btn">Scan Ulang</button>
-  <button id="saveBtn" class="btn">Simpan</button>
+  <button id="scanBtn" class="btn">🔄 Scan Ulang</button>
+  <button id="saveBtn" class="btn">💾 Simpan</button>
 
   <script>
+    // Ganti dengan URL Web App dari Google Apps Script
+    const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbwGlz9ygn9bu2G36ltnL3oGU45gK6KdNtfP3eigPJsaM6I9fXo-mFt9xFGiNAg0cQpf/exec";
+
     let lastResults = [];
     let html5QrCode;
 
@@ -33,16 +37,16 @@
 
     async function startScanner() {
       if (html5QrCode) {
-        await html5QrCode.stop();
+        await html5QrCode.stop().catch(() => {});
       }
 
       html5QrCode = new Html5Qrcode("qr-reader");
 
       Html5Qrcode.getCameras().then(cameras => {
         if (cameras && cameras.length) {
-          // Cari kamera belakang
-          let backCamera = cameras.find(cam => cam.label.toLowerCase().includes("back")) || cameras[0];
-          
+          // Pakai kamera belakang (biasanya index terakhir)
+          let backCamera = cameras[cameras.length - 0];
+
           html5QrCode.start(
             backCamera.id,
             { fps: 10, qrbox: { width: 250, height: 250 } },
@@ -52,45 +56,50 @@
                 renderResults();
               }
             }
-          );
+          ).catch(err => alert("Tidak bisa membuka kamera: " + err));
         } else {
-          alert("Kamera tidak ditemukan!");
+          alert("❌ Kamera tidak ditemukan!");
         }
-      });
+      }).catch(err => alert("Gagal akses kamera: " + err));
     }
 
     function renderResults() {
       resultContainer.innerHTML = "";
       lastResults.forEach((text, index) => {
         let p = document.createElement("p");
-        p.textContent = `Data ${index + 1}: ${text}`;
+        p.textContent = `#${index + 1} → ${text}`;
         resultContainer.appendChild(p);
       });
     }
 
+    // Tombol Scan Ulang
     document.getElementById("scanBtn").addEventListener("click", () => {
       lastResults = [];
       resultContainer.innerHTML = "";
       startScanner();
     });
 
+    // Tombol Simpan
     document.getElementById("saveBtn").addEventListener("click", () => {
       if (lastResults.length === 0) {
-        alert("Belum ada data yang discan!");
+        alert("⚠️ Belum ada data yang discan!");
         return;
       }
 
-      fetch("https://script.google.com/macros/s/AKfycbwGlz9ygn9bu2G36ltnL3oGU45gK6KdNtfP3eigPJsaM6I9fXo-mFt9xFGiNAg0cQpf/exec", {
+      fetch(GOOGLE_SHEET_URL, {
         method: "POST",
         body: JSON.stringify({ data: lastResults }),
         headers: { "Content-Type": "application/json" }
-      }).then(res => {
-        alert("Data berhasil dikirim!");
+      })
+      .then(() => {
+        alert("✅ Data berhasil dikirim!");
         lastResults = [];
         resultContainer.innerHTML = "";
-      }).catch(err => alert("Gagal kirim: " + err));
+      })
+      .catch(err => alert("❌ Gagal kirim: " + err));
     });
 
+    // Mulai langsung
     startScanner();
   </script>
 
