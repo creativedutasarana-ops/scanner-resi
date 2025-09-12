@@ -6,9 +6,17 @@
   <script src="https://rawgit.com/schmich/instascan-builds/master/instascan.min.js"></script>
   <style>
     body { font-family: Arial, sans-serif; text-align: center; }
-    #preview { width: 300px; border: 2px solid #333; margin: 10px auto; }
+    #preview { 
+      width: 320px; 
+      border: 2px solid #333; 
+      margin: 10px auto; 
+    }
+    /* Default mirror off (kamera belakang) */
+    .mirror-off {
+      transform: scaleX(1) !important;
+    }
     table { border-collapse: collapse; width: 100%; margin-top: 15px; }
-    th, td { border: 1px solid #999; padding: 6px; }
+    th, td { border: 1px solid #999; padding: 6px; text-align: center; }
     button { margin: 8px; padding: 8px 16px; cursor: pointer; }
   </style>
 </head>
@@ -40,7 +48,7 @@
   </table>
 
   <script>
-    const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbzkYfq4uK1x93SPTIrhak5dynDQsGZWZaRvB9wfg4ncCbwYHvYogkmVjoygAvlBIgHh/exec";
+    const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbwmoMa6r-YaXkduYTPKALfsIGGA90yVqyYCfDrTcWn1EsCE5E6NKgKGf8cCswx_uNME/exec";
     const GOOGLE_SHEET_TOKEN = "DSC-YOGYA";
 
     let scanner;
@@ -133,8 +141,9 @@
 
       Instascan.Camera.getCameras().then(function (cameras) {
         if (cameras.length > 0) {
-          // Default pakai kamera belakang (cameras[0])
+          // Default kamera belakang (cameras[0])
           scanner.start(cameras[0]);
+          document.getElementById('preview').classList.add("mirror-off");
         } else {
           alert("❌ Tidak ada kamera terdeteksi!");
         }
