@@ -32,7 +32,7 @@
   </div>
 
   <script>
-    const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbyPV-VQuLTrucz7Llu57yaRQr707NMJK7QXY8zz351EqVfI1Aqf6MurJBZO5Cwa7gCv/exec";
+    const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbwrGN8PAsUUYU27tvPT37MaDVCM1TsUk8pEqzLMNS2FLm61DZASmm8NyoTCfmzGVc09/exec";
 
     function getEkspedisi(resi) {
       if (resi.startsWith("JX")) return "J&T";
@@ -88,4 +88,16 @@
         alert("✅ Data berhasil disimpan ke Spreadsheet!");
         document.getElementById("saveBtn").disabled = true;
       } catch (e) {
-        aler
+        alert("❌ Gagal menyimpan data: " + e);
+      }
+    });
+
+    document.getElementById("scanAgainBtn").addEventListener("click", () => {
+      currentData = null;
+      document.getElementById("saveBtn").disabled = true;
+      document.getElementById("scanAgainBtn").disabled = true;
+      scanner.render(onScanSuccess);
+    });
+  </script>
+</body>
+</html>
