@@ -45,7 +45,7 @@
       Html5Qrcode.getCameras().then(cameras => {
         if (cameras && cameras.length) {
           // Pakai kamera belakang (biasanya index terakhir)
-          let backCamera = cameras[cameras.length - 0];
+          let backCamera = cameras[cameras.length - 1];
 
           html5QrCode.start(
             backCamera.id,
