@@ -5,7 +5,7 @@
   <title>Scanner Resi</title>
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 </head>
-<body>
+<body style="background:#111; color:white; font-family:Arial; padding:20px;">
   <h2>📦 Scanner Resi Pengiriman</h2>
 
   <!-- Input nama penerima -->
@@ -26,9 +26,13 @@
     </tr>
   </table>
 
+  <div id="buttons" style="margin-top:10px;">
+    <button id="saveBtn" disabled>Simpan ke Spreadsheet</button>
+    <button id="scanAgainBtn" disabled>Scan Lagi</button>
+  </div>
+
   <script>
     const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbyPV-VQuLTrucz7Llu57yaRQr707NMJK7QXY8zz351EqVfI1Aqf6MurJBZO5Cwa7gCv/exec";
-    const GOOGLE_SHEET_TOKEN = "DSC-YOGYA";
 
     function getEkspedisi(resi) {
       if (resi.startsWith("JX")) return "J&T";
@@ -39,41 +43,16 @@
       return "Lainnya";
     }
 
-    async function sendToSheet(data) {
-      try {
-        let res = await fetch(GOOGLE_SHEET_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token: GOOGLE_SHEET_TOKEN, ...data })
-        });
-        console.log("Respon server:", await res.text());
-      } catch (e) {
-        console.error("Gagal kirim ke sheet:", e);
-      }
-    }
-
-    function addRow(data) {
-      let table = document.getElementById("resultTable");
-      let row = table.insertRow();
-      row.insertCell(0).innerText = data.tanggal;
-      row.insertCell(1).innerText = data.jam;
-      row.insertCell(2).innerText = data.resi;
-      row.insertCell(3).innerText = data.nama;
-      row.insertCell(4).innerText = data.ekspedisi;
-    }
-
-    let lastScanned = "";
+    let currentData = null;
+    let scanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
 
     function onScanSuccess(decodedText) {
-      if (decodedText === lastScanned) return;
-      lastScanned = decodedText;
-
       let nama = document.getElementById("namaInput").value || "-";
       let now = new Date();
       let tanggal = now.toLocaleDateString("id-ID");
       let jam = now.toLocaleTimeString("id-ID");
 
-      let data = {
+      currentData = {
         tanggal,
         jam,
         resi: decodedText,
@@ -81,16 +60,32 @@
         ekspedisi: getEkspedisi(decodedText)
       };
 
-      addRow(data);
-      sendToSheet(data);
+      let table = document.getElementById("resultTable");
+      let row = table.insertRow();
+      row.insertCell(0).innerText = currentData.tanggal;
+      row.insertCell(1).innerText = currentData.jam;
+      row.insertCell(2).innerText = currentData.resi;
+      row.insertCell(3).innerText = currentData.nama;
+      row.insertCell(4).innerText = currentData.ekspedisi;
 
-      setTimeout(() => { lastScanned = ""; }, 3000);
+      document.getElementById("saveBtn").disabled = false;
+      document.getElementById("scanAgainBtn").disabled = false;
+
+      scanner.clear(); // stop scanner setelah berhasil scan
     }
 
-    let html5QrcodeScanner = new Html5QrcodeScanner(
-      "reader", { fps: 10, qrbox: 250 }
-    );
-    html5QrcodeScanner.render(onScanSuccess);
-  </script>
-</body>
-</html>
+    scanner.render(onScanSuccess);
+
+    document.getElementById("saveBtn").addEventListener("click", async () => {
+      if (!currentData) return;
+      try {
+        await fetch(GOOGLE_SHEET_URL, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(currentData)
+        });
+        alert("✅ Data berhasil disimpan ke Spreadsheet!");
+        document.getElementById("saveBtn").disabled = true;
+      } catch (e) {
+        aler
