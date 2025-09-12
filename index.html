@@ -1,107 +1,290 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <title>Scanner Resi</title>
-  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <meta charset="UTF-8">
+    <title>Scanner Resi</title>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <style>
+        body {
+            background: #111;
+            color: #eee;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            padding: 20px;
+        }
+        h2 {
+            color: #4CAF50;
+        }
+        #reader {
+            width: 100%;
+            max-width: 400px;
+            margin: 20px 0;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+        }
+        .mode-container {
+            margin: 15px 0;
+        }
+        .mode-container button {
+            padding: 8px 15px;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        #modeTunggal {
+            background-color: #2e8b57;
+            color: white;
+        }
+        #modeMassal {
+            background-color: #556b2f;
+            color: white;
+        }
+        #modeTunggal.active, #modeMassal.active {
+            background-color: #4CAF50;
+        }
+        input[type="text"] {
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid #555;
+            background: #333;
+            color: #eee;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #444;
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #333;
+        }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        #saveBtn {
+            background-color: #4CAF50;
+            color: white;
+        }
+        #saveBtn:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+        }
+        #scanAgainBtn {
+            background-color: #f44336;
+            color: white;
+        }
+        .message {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+            display: none;
+        }
+        .message.success {
+            background-color: #388E3C;
+            color: white;
+        }
+        .message.error {
+            background-color: #D32F2F;
+            color: white;
+        }
+    </style>
 </head>
-<body style="background:#111; color:white; font-family:Arial; padding:20px;">
-  <h2>📦 Scanner Resi Pengiriman</h2>
+<body>
+    <h2>📦 Scanner Resi Pengiriman</h2>
 
-  <!-- Input nama penerima -->
-  <label>Nama Penerima:</label>
-  <input type="text" id="namaInput" placeholder="Isi nama penerima"><br><br>
+    <div class="mode-container">
+        <label>Pilih Mode:</label><br>
+        <button id="modeTunggal" class="active">Satu per Satu</button>
+        <button id="modeMassal">Massal</button>
+    </div>
 
-  <!-- Kamera untuk scan -->
-  <div id="reader" style="width:300px;"></div>
+    <label>Nama Penerima:</label>
+    <input type="text" id="namaInput" placeholder="Isi nama penerima"><br><br>
 
-  <h3>Hasil Scan:</h3>
-  <table border="1" id="resultTable">
-    <tr>
-      <th>Tanggal</th>
-      <th>Jam</th>
-      <th>Nomor Resi</th>
-      <th>Nama</th>
-      <th>Ekspedisi</th>
-    </tr>
-  </table>
+    <div id="reader"></div>
 
-  <div id="buttons" style="margin-top:10px;">
-    <button id="saveBtn" disabled>Simpan ke Spreadsheet</button>
-    <button id="scanAgainBtn" disabled>Scan Lagi</button>
-  </div>
+    <h3>Hasil Scan:</h3>
+    <table border="1" id="resultTable">
+        <thead>
+            <tr>
+                <th>Tanggal</th>
+                <th>Jam</th>
+                <th>Nomor Resi</th>
+                <th>Nama</th>
+                <th>Ekspedisi</th>
+            </tr>
+        </thead>
+        <tbody>
+            </tbody>
+    </table>
 
-  <script>
-    const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbyCOWXpdtEmgW_1N98hrlFXTGvlmw6joRMOhF8pofeS5KLOHgl3SmgqZPigROALKCp9/exec";
+    <div id="buttons" style="margin-top:10px;">
+        <button id="saveBtn" disabled>Simpan ke Spreadsheet</button>
+        <button id="scanAgainBtn" disabled>Reset Scan</button>
+    </div>
 
-    function getEkspedisi(resi) {
-      if (resi.startsWith("JX")) return "J&T";
-      if (resi.startsWith("TTSPO")) return "Posind";
-      if (resi.startsWith("TSPX")) return "PAXEL";
-      if (resi.startsWith("TG")) return "JNE REG";
-      if (resi.startsWith("TSA")) return "Antaraja";
-      return "Lainnya";
-    }
+    <div id="messageBox" class="message"></div>
 
-    let currentData = null;
-    let scanner;
+    <script>
+        const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbyuyi0b2MSOZYZCp69KoRy4YRzslzt-XYsa9Sr8_eEbU8CLTM0pgehRvQsXPwHb8mtA/exec"; // Ganti dengan URL skrip Anda
+        
+        // Logika untuk mendeteksi ekspedisi
+        const getEkspedisi = (resi) => {
+            if (resi.startsWith("JX")) return "J&T";
+            if (resi.startsWith("TTSPO")) return "Posind";
+            if (resi.startsWith("TSPX")) return "PAXEL";
+            if (resi.startsWith("TG")) return "JNE REG";
+            if (resi.startsWith("TSA")) return "Antaraja";
+            return "Lainnya";
+        };
 
-    function startScanner() {
-      scanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
-      scanner.render(onScanSuccess);
-    }
+        let scanner;
+        let isMassalMode = false;
+        let scannedData = []; // Array untuk mode massal
+        let isScanning = false;
 
-    function onScanSuccess(decodedText) {
-      if (currentData) return; // biar ga terus-terusan scan
+        const readerDiv = document.getElementById("reader");
+        const namaInput = document.getElementById("namaInput");
+        const resultTableBody = document.querySelector("#resultTable tbody");
+        const saveBtn = document.getElementById("saveBtn");
+        const scanAgainBtn = document.getElementById("scanAgainBtn");
+        const modeTunggalBtn = document.getElementById("modeTunggal");
+        const modeMassalBtn = document.getElementById("modeMassal");
+        const messageBox = document.getElementById("messageBox");
 
-      let nama = document.getElementById("namaInput").value || "-";
-      let now = new Date();
-      let tanggal = now.toLocaleDateString("id-ID");
-      let jam = now.toLocaleTimeString("id-ID");
+        const showMessage = (text, type) => {
+            messageBox.innerText = text;
+            messageBox.className = `message ${type}`;
+            messageBox.style.display = 'block';
+            setTimeout(() => {
+                messageBox.style.display = 'none';
+            }, 3000);
+        };
 
-      currentData = {
-        tanggal,
-        jam,
-        resi: decodedText,
-        nama,
-        ekspedisi: getEkspedisi(decodedText)
-      };
+        const onScanSuccess = (decodedText) => {
+            if (scannedData.some(item => item.resi === decodedText)) {
+                showMessage("❌ Resi ini sudah discan!", "error");
+                return;
+            }
 
-      let table = document.getElementById("resultTable");
-      let row = table.insertRow();
-      row.insertCell(0).innerText = currentData.tanggal;
-      row.insertCell(1).innerText = currentData.jam;
-      row.insertCell(2).innerText = currentData.resi;
-      row.insertCell(3).innerText = currentData.nama;
-      row.insertCell(4).innerText = currentData.ekspedisi;
+            const nama = namaInput.value || "-";
+            const now = new Date();
+            const newData = {
+                tanggal: now.toLocaleDateString("id-ID"),
+                jam: now.toLocaleTimeString("id-ID"),
+                resi: decodedText,
+                nama: nama,
+                ekspedisi: getEkspedisi(decodedText)
+            };
+            
+            scannedData.push(newData);
+            
+            const row = resultTableBody.insertRow();
+            row.insertCell(0).innerText = newData.tanggal;
+            row.insertCell(1).innerText = newData.jam;
+            row.insertCell(2).innerText = newData.resi;
+            row.insertCell(3).innerText = newData.nama;
+            row.insertCell(4).innerText = newData.ekspedisi;
 
-      document.getElementById("saveBtn").disabled = false;
-      document.getElementById("scanAgainBtn").disabled = false;
-    }
+            saveBtn.disabled = false;
+            scanAgainBtn.disabled = false;
+            
+            if (!isMassalMode) {
+                scanner.stop();
+                isScanning = false;
+                sendData(scannedData);
+                scannedData = []; // Reset setelah kirim
+                resultTableBody.innerHTML = '';
+            }
+        };
 
-    startScanner();
+        const startScanner = () => {
+            if (isScanning) return;
+            scanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+            scanner.render(onScanSuccess);
+            isScanning = true;
+        };
 
-    document.getElementById("saveBtn").addEventListener("click", async () => {
-      if (!currentData) return;
-      try {
-        await fetch(GOOGLE_SHEET_URL, {
-          method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(currentData)
+        const sendData = async (dataToSend) => {
+            try {
+                const url = new URL(GOOGLE_SHEET_URL);
+                url.searchParams.append('data', JSON.stringify(dataToSend));
+                
+                await fetch(url, {
+                    method: "POST",
+                    mode: "no-cors",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(dataToSend)
+                });
+
+                showMessage("✅ Data berhasil disimpan ke Spreadsheet!", "success");
+                
+                // Reset UI
+                saveBtn.disabled = true;
+                scanAgainBtn.disabled = true;
+                namaInput.value = '';
+                
+            } catch (e) {
+                showMessage(`❌ Gagal menyimpan data: ${e.message}`, "error");
+            }
+        };
+
+        startScanner();
+
+        modeTunggalBtn.addEventListener("click", () => {
+            isMassalMode = false;
+            modeTunggalBtn.classList.add('active');
+            modeMassalBtn.classList.remove('active');
+            showMessage("Mode: Satu per Satu", "success");
+            
+            // Jika ada data di array, kosongkan dan reset UI
+            if (scannedData.length > 0) {
+                scannedData = [];
+                resultTableBody.innerHTML = '';
+                saveBtn.disabled = true;
+                scanAgainBtn.disabled = true;
+            }
+            if (!isScanning) startScanner();
         });
-        alert("✅ Data berhasil disimpan ke Spreadsheet!");
-        document.getElementById("saveBtn").disabled = true;
-      } catch (e) {
-        alert("❌ Gagal menyimpan data: " + e);
-      }
-    });
 
-    document.getElementById("scanAgainBtn").addEventListener("click", () => {
-      currentData = null;
-      document.getElementById("saveBtn").disabled = true;
-      document.getElementById("scanAgainBtn").disabled = true;
-    });
-  </script>
+        modeMassalBtn.addEventListener("click", () => {
+            isMassalMode = true;
+            modeMassalBtn.classList.add('active');
+            modeTunggalBtn.classList.remove('active');
+            showMessage("Mode: Massal", "success");
+            if (!isScanning) startScanner();
+        });
+
+        saveBtn.addEventListener("click", () => {
+            if (scannedData.length === 0) {
+                showMessage("Tidak ada data untuk disimpan.", "error");
+                return;
+            }
+            sendData(scannedData);
+            scannedData = []; // Kosongkan array setelah kirim
+            resultTableBody.innerHTML = ''; // Kosongkan tabel
+        });
+
+        scanAgainBtn.addEventListener("click", () => {
+            scannedData = [];
+            resultTableBody.innerHTML = '';
+            saveBtn.disabled = true;
+            scanAgainBtn.disabled = true;
+            namaInput.value = '';
+            if (!isScanning) startScanner();
+        });
+    </script>
 </body>
 </html>
