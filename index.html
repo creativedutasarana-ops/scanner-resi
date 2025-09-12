@@ -2,106 +2,142 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <title>Scanner Resi</title>
-  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <title>Scanner Resi Pengiriman</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #111; color: #fff; text-align: center; }
+    h1 { margin: 20px 0; }
+    table { border-collapse: collapse; margin: 20px auto; }
+    th, td { border: 1px solid #555; padding: 6px 12px; }
+    th { background: #333; }
+    button { margin: 10px; padding: 10px 15px; border: none; border-radius: 6px; cursor: pointer; }
+    #saveBtn { background: green; color: white; }
+    #scanAgainBtn { background: orange; color: white; }
+  </style>
 </head>
-<body style="background:#111; color:white; font-family:Arial; padding:20px;">
-  <h2>📦 Scanner Resi Pengiriman</h2>
+<body>
+  <h1>📦 Scanner Resi Pengiriman</h1>
 
-  <!-- Input nama penerima -->
-  <label>Nama Penerima:</label>
-  <input type="text" id="namaInput" placeholder="Isi nama penerima"><br><br>
+  <label>Nama Penerima:
+    <input type="text" id="namaInput" placeholder="Nama penerima">
+  </label>
 
-  <!-- Kamera untuk scan -->
-  <div id="reader" style="width:300px;"></div>
-
-  <h3>Hasil Scan:</h3>
-  <table border="1" id="resultTable">
-    <tr>
-      <th>Tanggal</th>
-      <th>Jam</th>
-      <th>Nomor Resi</th>
-      <th>Nama</th>
-      <th>Ekspedisi</th>
-    </tr>
-  </table>
-
-  <div id="buttons" style="margin-top:10px;">
-    <button id="saveBtn" disabled>Simpan ke Spreadsheet</button>
-    <button id="scanAgainBtn" disabled>Scan Lagi</button>
+  <div style="margin:20px;">
+    <video id="preview" width="300" height="200" style="border:1px solid #555;"></video>
   </div>
 
+  <h3>Hasil Scan:</h3>
+  <table id="hasilTable">
+    <thead>
+      <tr>
+        <th>Tanggal</th>
+        <th>Jam</th>
+        <th>Nomor Resi</th>
+        <th>Nama</th>
+        <th>Ekspedisi</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <button id="saveBtn">Simpan ke Spreadsheet</button>
+  <button id="scanAgainBtn">Scan Lagi</button>
+
+  <script src="https://rawgit.com/schmich/instascan-builds/master/instascan.min.js"></script>
   <script>
-    const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbwrGN8PAsUUYU27tvPT37MaDVCM1TsUk8pEqzLMNS2FLm61DZASmm8NyoTCfmzGVc09/exec";
-
-    function getEkspedisi(resi) {
-      if (resi.startsWith("JX")) return "J&T";
-      if (resi.startsWith("TTSPO")) return "Posind";
-      if (resi.startsWith("TSPX")) return "PAXEL";
-      if (resi.startsWith("TG")) return "JNE REG";
-      if (resi.startsWith("TSA")) return "Antaraja";
-      return "Lainnya";
-    }
-
-    let currentData = null;
     let scanner;
+    let hasilScan = [];
 
+    // Inisialisasi kamera
     function startScanner() {
-      scanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
-      scanner.render(onScanSuccess);
-    }
+      scanner = new Instascan.Scanner({ video: document.getElementById('preview') });
+      scanner.addListener('scan', function (content) {
+        const now = new Date();
+        const tanggal = now.toLocaleDateString();
+        const jam = now.toLocaleTimeString();
+        const nama = document.getElementById("namaInput").value || "-";
 
-    function onScanSuccess(decodedText) {
-      if (currentData) return; // biar ga terus-terusan scan
+        // Misalnya format hasil scan "RESI12345|JNE"
+        let [resi, ekspedisi] = content.split("|");
+        if (!ekspedisi) ekspedisi = "-";
 
-      let nama = document.getElementById("namaInput").value || "-";
-      let now = new Date();
-      let tanggal = now.toLocaleDateString("id-ID");
-      let jam = now.toLocaleTimeString("id-ID");
-
-      currentData = {
-        tanggal,
-        jam,
-        resi: decodedText,
-        nama,
-        ekspedisi: getEkspedisi(decodedText)
-      };
-
-      let table = document.getElementById("resultTable");
-      let row = table.insertRow();
-      row.insertCell(0).innerText = currentData.tanggal;
-      row.insertCell(1).innerText = currentData.jam;
-      row.insertCell(2).innerText = currentData.resi;
-      row.insertCell(3).innerText = currentData.nama;
-      row.insertCell(4).innerText = currentData.ekspedisi;
-
-      document.getElementById("saveBtn").disabled = false;
-      document.getElementById("scanAgainBtn").disabled = false;
-    }
-
-    startScanner();
-
-    document.getElementById("saveBtn").addEventListener("click", async () => {
-      if (!currentData) return;
-      try {
-        await fetch(GOOGLE_SHEET_URL, {
-          method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(currentData)
+        hasilScan.push({
+          tanggal: tanggal,
+          jam: jam,
+          resi: resi,
+          nama: nama,
+          ekspedisi: ekspedisi
         });
+
+        updateTabel();
+      });
+
+      Instascan.Camera.getCameras().then(function (cameras) {
+        if (cameras.length > 0) {
+          scanner.start(cameras[0]); // default kamera belakang
+        } else {
+          alert('Tidak ada kamera terdeteksi');
+        }
+      }).catch(function (e) {
+        console.error(e);
+        alert("Error kamera: " + e);
+      });
+    }
+
+    // Update tabel hasil scan
+    function updateTabel() {
+      let tbody = document.querySelector("#hasilTable tbody");
+      tbody.innerHTML = "";
+      hasilScan.forEach(row => {
+        let tr = `<tr>
+          <td>${row.tanggal}</td>
+          <td>${row.jam}</td>
+          <td>${row.resi}</td>
+          <td>${row.nama}</td>
+          <td>${row.ekspedisi}</td>
+        </tr>`;
+        tbody.innerHTML += tr;
+      });
+    }
+
+    // Tombol Simpan
+    document.getElementById("saveBtn").addEventListener("click", function () {
+      if (hasilScan.length === 0) {
+        alert("Belum ada data untuk disimpan.");
+        return;
+      }
+
+      fetch("https://script.google.com/macros/s/AKfycbzkYfq4uK1x93SPTIrhak5dynDQsGZWZaRvB9wfg4ncCbwYHvYogkmVjoygAvlBIgHh/exec", {
+        method: "POST",
+        body: JSON.stringify(hasilScan),
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+      .then(res => res.json())
+      .then(response => {
         alert("✅ Data berhasil disimpan ke Spreadsheet!");
-        document.getElementById("saveBtn").disabled = true;
-      } catch (e) {
-        alert("❌ Gagal menyimpan data: " + e);
+        hasilScan = []; // kosongkan array setelah simpan
+        updateTabel();
+      })
+      .catch(err => {
+        console.error("Error:", err);
+        alert("Gagal menyimpan ke Spreadsheet.");
+      });
+    });
+
+    // Tombol Scan Lagi
+    document.getElementById("scanAgainBtn").addEventListener("click", function () {
+      if (scanner) {
+        scanner.stop().then(() => {
+          startScanner();
+        });
+      } else {
+        startScanner();
       }
     });
 
-    document.getElementById("scanAgainBtn").addEventListener("click", () => {
-      currentData = null;
-      document.getElementById("saveBtn").disabled = true;
-      document.getElementById("scanAgainBtn").disabled = true;
-    });
+    // Mulai scanner pertama kali
+    startScanner();
   </script>
 </body>
 </html>
