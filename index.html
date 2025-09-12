@@ -99,6 +99,10 @@
             background-color: #D32F2F;
             color: white;
         }
+        .message.info {
+            background-color: #1a73e8;
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -138,9 +142,8 @@
     <div id="messageBox" class="message"></div>
 
     <script>
-        const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbyuyi0b2MSOZYZCp69KoRy4YRzslzt-XYsa9Sr8_eEbU8CLTM0pgehRvQsXPwHb8mtA/exec"; // Ganti dengan URL skrip Anda
+        const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbxFUV7BwL_v_tuzPYZ5MLN_oZeKUEMGxbcNVqTdZLrKt0WT3pQQaU8AMQeRtkHqk_Oj/exec"; // Ganti dengan URL skrip Anda
         
-        // Logika untuk mendeteksi ekspedisi
         const getEkspedisi = (resi) => {
             if (resi.startsWith("JX")) return "J&T";
             if (resi.startsWith("TTSPO")) return "Posind";
@@ -152,7 +155,7 @@
 
         let scanner;
         let isMassalMode = false;
-        let scannedData = []; // Array untuk mode massal
+        let scannedData = [];
         let isScanning = false;
 
         const readerDiv = document.getElementById("reader");
@@ -178,6 +181,8 @@
                 showMessage("❌ Resi ini sudah discan!", "error");
                 return;
             }
+
+            showMessage("✅ Resi berhasil di-scan!", "success");
 
             const nama = namaInput.value || "-";
             const now = new Date();
@@ -205,8 +210,6 @@
                 scanner.stop();
                 isScanning = false;
                 sendData(scannedData);
-                scannedData = []; // Reset setelah kirim
-                resultTableBody.innerHTML = '';
             }
         };
 
@@ -228,10 +231,12 @@
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(dataToSend)
                 });
-
-                showMessage("✅ Data berhasil disimpan ke Spreadsheet!", "success");
                 
-                // Reset UI
+                showMessage("✅ Data scan telah berhasil disimpan!", "success");
+                
+                // Reset UI setelah data disimpan
+                scannedData = [];
+                resultTableBody.innerHTML = '';
                 saveBtn.disabled = true;
                 scanAgainBtn.disabled = true;
                 namaInput.value = '';
@@ -247,9 +252,8 @@
             isMassalMode = false;
             modeTunggalBtn.classList.add('active');
             modeMassalBtn.classList.remove('active');
-            showMessage("Mode: Satu per Satu", "success");
+            showMessage("Mode: Satu per Satu", "info");
             
-            // Jika ada data di array, kosongkan dan reset UI
             if (scannedData.length > 0) {
                 scannedData = [];
                 resultTableBody.innerHTML = '';
@@ -263,7 +267,7 @@
             isMassalMode = true;
             modeMassalBtn.classList.add('active');
             modeTunggalBtn.classList.remove('active');
-            showMessage("Mode: Massal", "success");
+            showMessage("Mode: Massal", "info");
             if (!isScanning) startScanner();
         });
 
@@ -273,8 +277,6 @@
                 return;
             }
             sendData(scannedData);
-            scannedData = []; // Kosongkan array setelah kirim
-            resultTableBody.innerHTML = ''; // Kosongkan tabel
         });
 
         scanAgainBtn.addEventListener("click", () => {
