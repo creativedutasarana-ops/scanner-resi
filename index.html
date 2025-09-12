@@ -27,9 +27,16 @@
     </tr>
   </table>
 
+  <button id="saveBtn" onclick="saveToSheet()" disabled>💾 Simpan ke Spreadsheet</button>
+  <button id="scanAgainBtn" onclick="startScanner()" style="display:none;">🔄 Scan Lagi</button>
+
   <script>
     const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbyTxuWYsOqygAJhg85FkKU4RqZ2V72naKaAYVCl4cMe_FHLgyp6USGBW5xI_N06SXuB_g/exec";
     const GOOGLE_SHEET_TOKEN = "DSC-YOGYA";
+
+    let lastScanned = "";
+    let scannedData = null;
+    let scanner;
 
     // mapping kode ekspedisi
     function getEkspedisi(resi) {
@@ -39,20 +46,6 @@
       if (resi.startsWith("TG")) return "JNE REG";
       if (resi.startsWith("TSA")) return "Antaraja";
       return "Lainnya";
-    }
-
-    // kirim data ke Google Sheets
-    async function sendToSheet(data) {
-      try {
-        await fetch(GOOGLE_SHEET_URL, {
-          method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token: GOOGLE_SHEET_TOKEN, ...data })
-        });
-      } catch (e) {
-        console.error("Gagal kirim ke sheet:", e);
-      }
     }
 
     function addRow(data) {
@@ -65,13 +58,34 @@
       row.insertCell(4).innerText = data.ekspedisi;
     }
 
+    // kirim ke spreadsheet
+    async function saveToSheet() {
+      if (!scannedData) return;
+      try {
+        await fetch(GOOGLE_SHEET_URL, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: GOOGLE_SHEET_TOKEN, ...scannedData })
+        });
+        alert("✅ Data berhasil disimpan!");
+        document.getElementById("saveBtn").disabled = true;
+        document.getElementById("scanAgainBtn").style.display = "inline-block";
+      } catch (e) {
+        alert("❌ Gagal simpan: " + e);
+      }
+    }
+
     function onScanSuccess(decodedText) {
+      if (decodedText === lastScanned) return; // cegah duplikat
+      lastScanned = decodedText;
+
       let nama = document.getElementById("namaInput").value || "-";
       let now = new Date();
       let tanggal = now.toLocaleDateString("id-ID");
       let jam = now.toLocaleTimeString("id-ID");
 
-      let data = {
+      scannedData = {
         tanggal,
         jam,
         resi: decodedText,
@@ -79,15 +93,26 @@
         ekspedisi: getEkspedisi(decodedText)
       };
 
-      addRow(data);
-      sendToSheet(data);
+      addRow(scannedData);
+
+      // stop scanner setelah berhasil
+      scanner.clear().then(() => {
+        document.getElementById("saveBtn").disabled = false;
+      });
     }
 
-    // mulai scanner
-    let html5QrcodeScanner = new Html5QrcodeScanner(
-      "reader", { fps: 10, qrbox: 250 }
-    );
-    html5QrcodeScanner.render(onScanSuccess);
+    function startScanner() {
+      lastScanned = "";
+      scannedData = null;
+      document.getElementById("saveBtn").disabled = true;
+      document.getElementById("scanAgainBtn").style.display = "none";
+
+      scanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+      scanner.render(onScanSuccess);
+    }
+
+    // mulai pertama kali
+    startScanner();
   </script>
 </body>
 </html>
