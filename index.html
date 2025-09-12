@@ -142,7 +142,7 @@
     <div id="messageBox" class="message"></div>
 
     <script>
-        const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbwrGN8PAsUUYU27tvPT37MaDVCM1TsUk8pEqzLMNS2FLm61DZASmm8NyoTCfmzGVc09/exec"; // Ganti dengan URL skrip Anda
+        const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbzBKs6Io3yUi-NVc1H1y3kor1wYcUzih7PFGjdBx2RIrPsdebORfV2HNlF_GoWzTHSF/exec"; // Ganti dengan URL skrip Anda
         
         const getEkspedisi = (resi) => {
             if (resi.startsWith("JX")) return "J&T";
@@ -200,7 +200,6 @@
             
             scannedData.push(newData);
             
-            // Mengubah urutan kolom agar sesuai dengan tabel
             const row = resultTableBody.insertRow();
             row.insertCell(0).innerText = newData.tanggal;
             row.insertCell(1).innerText = newData.jam;
@@ -230,7 +229,6 @@
                 const url = new URL(GOOGLE_SHEET_URL);
                 url.searchParams.append('data', JSON.stringify(dataToSend));
                 
-                // Mengubah urutan data dalam body JSON
                 const formattedData = dataToSend.map(d => ({
                     tanggal: d.tanggal,
                     jam: d.jam,
@@ -262,7 +260,10 @@
             }
         };
 
-        startScanner();
+        // Ini untuk memastikan pemindai mulai saat halaman pertama kali dibuka
+        window.addEventListener('load', () => {
+            setTimeout(startScanner, 500);
+        });
 
         modeTunggalBtn.addEventListener("click", () => {
             isMassalMode = false;
