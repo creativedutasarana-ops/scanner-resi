@@ -2,159 +2,97 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <title>Scanner Resi Pengiriman</title>
-  <script src="https://rawgit.com/schmich/instascan-builds/master/instascan.min.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QR Code Scanner ke Google Sheet</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
   <style>
-    body { font-family: Arial, sans-serif; text-align: center; }
-    #preview { 
-      width: 320px; 
-      border: 2px solid #333; 
-      margin: 10px auto; 
-    }
-    /* Default mirror off (kamera belakang) */
-    .mirror-off {
-      transform: scaleX(1) !important;
-    }
-    table { border-collapse: collapse; width: 100%; margin-top: 15px; }
-    th, td { border: 1px solid #999; padding: 6px; text-align: center; }
-    button { margin: 8px; padding: 8px 16px; cursor: pointer; }
+    body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
+    #qr-reader { width: 100%; max-width: 400px; margin: auto; }
+    #result-container { margin-top: 20px; }
+    .btn { padding: 10px 20px; margin: 10px; font-size: 16px; cursor: pointer; border: none; border-radius: 6px; }
+    #saveBtn { background: green; color: white; }
+    #scanBtn { background: orange; color: white; }
   </style>
 </head>
 <body>
-  <h2>📦 Scanner Resi Pengiriman</h2>
 
-  <!-- Input nama penerima -->
-  <label>Nama Penerima:</label>
-  <input type="text" id="namaInput" placeholder="Isi nama penerima"><br><br>
+  <h2>QR Code Scanner ke Google Sheet</h2>
+  <div id="qr-reader"></div>
 
-  <!-- Kamera preview -->
-  <video id="preview"></video>
+  <div id="result-container"></div>
 
-  <!-- Tombol -->
-  <div>
-    <button onclick="resetScanner()">🔄 Scan Ulang</button>
-    <button onclick="saveToSheet()">💾 Simpan ke Spreadsheet</button>
-  </div>
-
-  <h3>Hasil Scan:</h3>
-  <table id="resultTable">
-    <tr>
-      <th>Tanggal</th>
-      <th>Jam</th>
-      <th>Nomor Resi</th>
-      <th>Nama</th>
-      <th>Ekspedisi</th>
-    </tr>
-  </table>
+  <button id="scanBtn" class="btn">Scan Ulang</button>
+  <button id="saveBtn" class="btn">Simpan</button>
 
   <script>
-    const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbwmoMa6r-YaXkduYTPKALfsIGGA90yVqyYCfDrTcWn1EsCE5E6NKgKGf8cCswx_uNME/exec";
-    const GOOGLE_SHEET_TOKEN = "DSC-YOGYA";
+    let lastResults = [];
+    let html5QrCode;
 
-    let scanner;
-    let hasilScan = [];
+    const qrReaderElement = document.getElementById("qr-reader");
+    const resultContainer = document.getElementById("result-container");
 
-    // Mapping ekspedisi
-    function getEkspedisi(resi) {
-      if (resi.startsWith("JX")) return "J&T";
-      if (resi.startsWith("TTSPO")) return "Posind";
-      if (resi.startsWith("TSPX")) return "PAXEL";
-      if (resi.startsWith("TG")) return "JNE REG";
-      if (resi.startsWith("TSA")) return "Antaraja";
-      return "Lainnya";
-    }
+    async function startScanner() {
+      if (html5QrCode) {
+        await html5QrCode.stop();
+      }
 
-    // Update tabel
-    function updateTabel() {
-      let table = document.getElementById("resultTable");
-      table.innerHTML = `
-        <tr>
-          <th>Tanggal</th>
-          <th>Jam</th>
-          <th>Nomor Resi</th>
-          <th>Nama</th>
-          <th>Ekspedisi</th>
-        </tr>`;
-      hasilScan.forEach(data => {
-        let row = table.insertRow();
-        row.insertCell(0).innerText = data.tanggal;
-        row.insertCell(1).innerText = data.jam;
-        row.insertCell(2).innerText = data.resi;
-        row.insertCell(3).innerText = data.nama;
-        row.insertCell(4).innerText = data.ekspedisi;
+      html5QrCode = new Html5Qrcode("qr-reader");
+
+      Html5Qrcode.getCameras().then(cameras => {
+        if (cameras && cameras.length) {
+          // Cari kamera belakang
+          let backCamera = cameras.find(cam => cam.label.toLowerCase().includes("back")) || cameras[0];
+          
+          html5QrCode.start(
+            backCamera.id,
+            { fps: 10, qrbox: { width: 250, height: 250 } },
+            (decodedText) => {
+              if (!lastResults.includes(decodedText)) {
+                lastResults.push(decodedText);
+                renderResults();
+              }
+            }
+          );
+        } else {
+          alert("Kamera tidak ditemukan!");
+        }
       });
     }
 
-    // Kirim ke Google Sheet
-    async function saveToSheet() {
-      if (hasilScan.length === 0) {
-        alert("Belum ada data untuk disimpan!");
+    function renderResults() {
+      resultContainer.innerHTML = "";
+      lastResults.forEach((text, index) => {
+        let p = document.createElement("p");
+        p.textContent = `Data ${index + 1}: ${text}`;
+        resultContainer.appendChild(p);
+      });
+    }
+
+    document.getElementById("scanBtn").addEventListener("click", () => {
+      lastResults = [];
+      resultContainer.innerHTML = "";
+      startScanner();
+    });
+
+    document.getElementById("saveBtn").addEventListener("click", () => {
+      if (lastResults.length === 0) {
+        alert("Belum ada data yang discan!");
         return;
       }
-      try {
-        await fetch(GOOGLE_SHEET_URL, {
-          method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            token: GOOGLE_SHEET_TOKEN,
-            data: hasilScan
-          })
-        });
-        alert("✅ Data berhasil dikirim ke Spreadsheet!");
-        hasilScan = [];
-        updateTabel();
-      } catch (e) {
-        console.error(e);
-        alert("❌ Gagal kirim ke Spreadsheet!");
-      }
-    }
 
-    // Reset scanner
-    function resetScanner() {
-      if (scanner) {
-        scanner.stop();
-      }
-      startScanner();
-    }
+      fetch("https://script.google.com/macros/s/AKfycbwGlz9ygn9bu2G36ltnL3oGU45gK6KdNtfP3eigPJsaM6I9fXo-mFt9xFGiNAg0cQpf/exec", {
+        method: "POST",
+        body: JSON.stringify({ data: lastResults }),
+        headers: { "Content-Type": "application/json" }
+      }).then(res => {
+        alert("Data berhasil dikirim!");
+        lastResults = [];
+        resultContainer.innerHTML = "";
+      }).catch(err => alert("Gagal kirim: " + err));
+    });
 
-    // Mulai scanner
-    function startScanner() {
-      scanner = new Instascan.Scanner({ video: document.getElementById('preview') });
-      scanner.addListener('scan', function (content) {
-        const now = new Date();
-        const tanggal = now.toLocaleDateString("id-ID");
-        const jam = now.toLocaleTimeString("id-ID");
-        const nama = document.getElementById("namaInput").value || "-";
-
-        let data = {
-          tanggal: tanggal,
-          jam: jam,
-          resi: content,
-          nama: nama,
-          ekspedisi: getEkspedisi(content)
-        };
-
-        hasilScan.push(data);
-        updateTabel();
-      });
-
-      Instascan.Camera.getCameras().then(function (cameras) {
-        if (cameras.length > 0) {
-          // Default kamera belakang (cameras[0])
-          scanner.start(cameras[0]);
-          document.getElementById('preview').classList.add("mirror-off");
-        } else {
-          alert("❌ Tidak ada kamera terdeteksi!");
-        }
-      }).catch(function (e) {
-        console.error(e);
-        alert("Error kamera: " + e);
-      });
-    }
-
-    // Jalankan saat load
     startScanner();
   </script>
+
 </body>
 </html>
