@@ -125,9 +125,9 @@
             <tr>
                 <th>Tanggal</th>
                 <th>Jam</th>
+                <th>Ekspedisi</th>
                 <th>Nomor Resi</th>
                 <th>Nama</th>
-                <th>Ekspedisi</th>
             </tr>
         </thead>
         <tbody>
@@ -142,7 +142,7 @@
     <div id="messageBox" class="message"></div>
 
     <script>
-        const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbxFUV7BwL_v_tuzPYZ5MLN_oZeKUEMGxbcNVqTdZLrKt0WT3pQQaU8AMQeRtkHqk_Oj/exec"; // Ganti dengan URL skrip Anda
+        const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbwrGN8PAsUUYU27tvPT37MaDVCM1TsUk8pEqzLMNS2FLm61DZASmm8NyoTCfmzGVc09/exec"; // Ganti dengan URL skrip Anda
         
         const getEkspedisi = (resi) => {
             if (resi.startsWith("JX")) return "J&T";
@@ -177,8 +177,12 @@
         };
 
         const onScanSuccess = (decodedText) => {
+            scanner.stop();
+            isScanning = false;
+
             if (scannedData.some(item => item.resi === decodedText)) {
                 showMessage("❌ Resi ini sudah discan!", "error");
+                startScanner();
                 return;
             }
 
@@ -196,20 +200,21 @@
             
             scannedData.push(newData);
             
+            // Mengubah urutan kolom agar sesuai dengan tabel
             const row = resultTableBody.insertRow();
             row.insertCell(0).innerText = newData.tanggal;
             row.insertCell(1).innerText = newData.jam;
-            row.insertCell(2).innerText = newData.resi;
-            row.insertCell(3).innerText = newData.nama;
-            row.insertCell(4).innerText = newData.ekspedisi;
+            row.insertCell(2).innerText = newData.ekspedisi;
+            row.insertCell(3).innerText = newData.resi;
+            row.insertCell(4).innerText = newData.nama;
 
             saveBtn.disabled = false;
             scanAgainBtn.disabled = false;
             
             if (!isMassalMode) {
-                scanner.stop();
-                isScanning = false;
                 sendData(scannedData);
+            } else {
+                startScanner();
             }
         };
 
@@ -225,24 +230,35 @@
                 const url = new URL(GOOGLE_SHEET_URL);
                 url.searchParams.append('data', JSON.stringify(dataToSend));
                 
+                // Mengubah urutan data dalam body JSON
+                const formattedData = dataToSend.map(d => ({
+                    tanggal: d.tanggal,
+                    jam: d.jam,
+                    ekspedisi: d.ekspedisi,
+                    resi: d.resi,
+                    nama: d.nama
+                }));
+
                 await fetch(url, {
                     method: "POST",
                     mode: "no-cors",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(dataToSend)
+                    body: JSON.stringify(formattedData)
                 });
                 
                 showMessage("✅ Data scan telah berhasil disimpan!", "success");
                 
-                // Reset UI setelah data disimpan
                 scannedData = [];
                 resultTableBody.innerHTML = '';
                 saveBtn.disabled = true;
                 scanAgainBtn.disabled = true;
                 namaInput.value = '';
                 
+                startScanner();
+                
             } catch (e) {
                 showMessage(`❌ Gagal menyimpan data: ${e.message}`, "error");
+                startScanner();
             }
         };
 
