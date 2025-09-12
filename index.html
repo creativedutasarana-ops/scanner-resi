@@ -2,106 +2,106 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Scanner Resi ke Google Sheet</title>
-  <script src="https://unpkg.com/html5-qrcode"></script>
-  <style>
-    body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
-    #qr-reader { width: 100%; max-width: 400px; margin: auto; }
-    #result-container { margin-top: 20px; text-align: left; }
-    .btn { padding: 10px 20px; margin: 10px; font-size: 16px; cursor: pointer; border: none; border-radius: 6px; }
-    #saveBtn { background: green; color: white; }
-    #scanBtn { background: orange; color: white; }
-  </style>
+  <title>Scanner Resi</title>
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 </head>
-<body>
+<body style="background:#111; color:white; font-family:Arial; padding:20px;">
+  <h2>📦 Scanner Resi Pengiriman</h2>
 
-  <h2>📦 Scanner Resi ke Google Sheet</h2>
-  <div id="qr-reader"></div>
+  <!-- Input nama penerima -->
+  <label>Nama Penerima:</label>
+  <input type="text" id="namaInput" placeholder="Isi nama penerima"><br><br>
 
-  <h3>📋 Hasil Scan:</h3>
-  <div id="result-container"></div>
+  <!-- Kamera untuk scan -->
+  <div id="reader" style="width:300px;"></div>
 
-  <button id="scanBtn" class="btn">🔄 Scan Ulang</button>
-  <button id="saveBtn" class="btn">💾 Simpan</button>
+  <h3>Hasil Scan:</h3>
+  <table border="1" id="resultTable">
+    <tr>
+      <th>Tanggal</th>
+      <th>Jam</th>
+      <th>Nomor Resi</th>
+      <th>Nama</th>
+      <th>Ekspedisi</th>
+    </tr>
+  </table>
+
+  <div id="buttons" style="margin-top:10px;">
+    <button id="saveBtn" disabled>Simpan ke Spreadsheet</button>
+    <button id="scanAgainBtn" disabled>Scan Lagi</button>
+  </div>
 
   <script>
-    // Ganti dengan URL Web App dari Google Apps Script
     const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbwGlz9ygn9bu2G36ltnL3oGU45gK6KdNtfP3eigPJsaM6I9fXo-mFt9xFGiNAg0cQpf/exec";
 
-    let lastResults = [];
-    let html5QrCode;
-
-    const qrReaderElement = document.getElementById("qr-reader");
-    const resultContainer = document.getElementById("result-container");
-
-    async function startScanner() {
-      if (html5QrCode) {
-        await html5QrCode.stop().catch(() => {});
-      }
-
-      html5QrCode = new Html5Qrcode("qr-reader");
-
-      Html5Qrcode.getCameras().then(cameras => {
-        if (cameras && cameras.length) {
-          // Pakai kamera belakang (biasanya index terakhir)
-          let backCamera = cameras[cameras.length - 1];
-
-          html5QrCode.start(
-            backCamera.id,
-            { fps: 10, qrbox: { width: 250, height: 250 } },
-            (decodedText) => {
-              if (!lastResults.includes(decodedText)) {
-                lastResults.push(decodedText);
-                renderResults();
-              }
-            }
-          ).catch(err => alert("Tidak bisa membuka kamera: " + err));
-        } else {
-          alert("❌ Kamera tidak ditemukan!");
-        }
-      }).catch(err => alert("Gagal akses kamera: " + err));
+    function getEkspedisi(resi) {
+      if (resi.startsWith("JX")) return "J&T";
+      if (resi.startsWith("TTSPO")) return "Posind";
+      if (resi.startsWith("TSPX")) return "PAXEL";
+      if (resi.startsWith("TG")) return "JNE REG";
+      if (resi.startsWith("TSA")) return "Antaraja";
+      return "Lainnya";
     }
 
-    function renderResults() {
-      resultContainer.innerHTML = "";
-      lastResults.forEach((text, index) => {
-        let p = document.createElement("p");
-        p.textContent = `#${index + 1} → ${text}`;
-        resultContainer.appendChild(p);
-      });
+    let currentData = null;
+    let scanner;
+
+    function startScanner() {
+      scanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+      scanner.render(onScanSuccess);
     }
 
-    // Tombol Scan Ulang
-    document.getElementById("scanBtn").addEventListener("click", () => {
-      lastResults = [];
-      resultContainer.innerHTML = "";
-      startScanner();
-    });
+    function onScanSuccess(decodedText) {
+      if (currentData) return; // biar ga terus-terusan scan
 
-    // Tombol Simpan
-    document.getElementById("saveBtn").addEventListener("click", () => {
-      if (lastResults.length === 0) {
-        alert("⚠️ Belum ada data yang discan!");
-        return;
-      }
+      let nama = document.getElementById("namaInput").value || "-";
+      let now = new Date();
+      let tanggal = now.toLocaleDateString("id-ID");
+      let jam = now.toLocaleTimeString("id-ID");
 
-      fetch(GOOGLE_SHEET_URL, {
-        method: "POST",
-        body: JSON.stringify({ data: lastResults }),
-        headers: { "Content-Type": "application/json" }
-      })
-      .then(() => {
-        alert("✅ Data berhasil dikirim!");
-        lastResults = [];
-        resultContainer.innerHTML = "";
-      })
-      .catch(err => alert("❌ Gagal kirim: " + err));
-    });
+      currentData = {
+        tanggal,
+        jam,
+        resi: decodedText,
+        nama,
+        ekspedisi: getEkspedisi(decodedText)
+      };
 
-    // Mulai langsung
+      let table = document.getElementById("resultTable");
+      let row = table.insertRow();
+      row.insertCell(0).innerText = currentData.tanggal;
+      row.insertCell(1).innerText = currentData.jam;
+      row.insertCell(2).innerText = currentData.resi;
+      row.insertCell(3).innerText = currentData.nama;
+      row.insertCell(4).innerText = currentData.ekspedisi;
+
+      document.getElementById("saveBtn").disabled = false;
+      document.getElementById("scanAgainBtn").disabled = false;
+    }
+
     startScanner();
-  </script>
 
+    document.getElementById("saveBtn").addEventListener("click", async () => {
+      if (!currentData) return;
+      try {
+        await fetch(GOOGLE_SHEET_URL, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(currentData)
+        });
+        alert("✅ Data berhasil disimpan ke Spreadsheet!");
+        document.getElementById("saveBtn").disabled = true;
+      } catch (e) {
+        alert("❌ Gagal menyimpan data: " + e);
+      }
+    });
+
+    document.getElementById("scanAgainBtn").addEventListener("click", () => {
+      currentData = null;
+      document.getElementById("saveBtn").disabled = true;
+      document.getElementById("scanAgainBtn").disabled = true;
+    });
+  </script>
 </body>
 </html>
