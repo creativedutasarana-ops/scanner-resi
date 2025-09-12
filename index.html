@@ -44,9 +44,16 @@
     }
 
     let currentData = null;
-    let scanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+    let scanner;
+
+    function startScanner() {
+      scanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+      scanner.render(onScanSuccess);
+    }
 
     function onScanSuccess(decodedText) {
+      if (currentData) return; // biar ga terus-terusan scan
+
       let nama = document.getElementById("namaInput").value || "-";
       let now = new Date();
       let tanggal = now.toLocaleDateString("id-ID");
@@ -70,11 +77,9 @@
 
       document.getElementById("saveBtn").disabled = false;
       document.getElementById("scanAgainBtn").disabled = false;
-
-      scanner.clear(); // stop scanner setelah berhasil scan
     }
 
-    scanner.render(onScanSuccess);
+    startScanner();
 
     document.getElementById("saveBtn").addEventListener("click", async () => {
       if (!currentData) return;
@@ -96,7 +101,6 @@
       currentData = null;
       document.getElementById("saveBtn").disabled = true;
       document.getElementById("scanAgainBtn").disabled = true;
-      scanner.render(onScanSuccess);
     });
   </script>
 </body>
